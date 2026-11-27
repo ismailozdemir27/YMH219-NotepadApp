@@ -45,8 +45,17 @@ namespace NotepadApp.Forms
         private System.Windows.Forms.ToolStripButton tsbtnAlignCenter;
         private System.Windows.Forms.ToolStripButton tsbtnAlignRight;
         private System.Windows.Forms.ToolStripSeparator tsSep3;
-        private System.Windows.Forms.ToolStripButton tsbtnExportTxt;
-        private System.Windows.Forms.ToolStripButton tsbtnExportRtf;
+        private System.Windows.Forms.ToolStripButton tsbtnInsertImage;
+        private System.Windows.Forms.ToolStripButton tsbtnFindReplace;
+        private System.Windows.Forms.ToolStripButton tsbtnTTS;
+        private System.Windows.Forms.ToolStripButton tsbtnLock;
+        private System.Windows.Forms.ToolStripButton tsbtnStats;
+        private System.Windows.Forms.ToolStripSeparator tsSep4;
+        private System.Windows.Forms.ToolStripDropDownButton tsddbExport;
+        private System.Windows.Forms.ToolStripMenuItem miExportTxt;
+        private System.Windows.Forms.ToolStripMenuItem miExportRtf;
+        private System.Windows.Forms.ToolStripMenuItem miExportMd;
+        private System.Windows.Forms.ToolStripMenuItem miExportHtml;
         private System.Windows.Forms.ToolStripButton tsbtnImport;
 
         // Editör ve Menü
@@ -56,13 +65,18 @@ namespace NotepadApp.Forms
         private System.Windows.Forms.ToolStripMenuItem miCopy;
         private System.Windows.Forms.ToolStripMenuItem miPaste;
         private System.Windows.Forms.ToolStripSeparator miSep1;
+        private System.Windows.Forms.ToolStripMenuItem miFind;
+        private System.Windows.Forms.ToolStripMenuItem miSpeak;
+        private System.Windows.Forms.ToolStripSeparator miSep2;
         private System.Windows.Forms.ToolStripMenuItem miSelectAll;
 
         // Durum Çubuğu
         private System.Windows.Forms.StatusStrip statusStrip;
         private System.Windows.Forms.ToolStripStatusLabel lblWordCount;
         private System.Windows.Forms.ToolStripStatusLabel lblCharCount;
+        private System.Windows.Forms.ToolStripStatusLabel lblReadingTime;
         private System.Windows.Forms.ToolStripStatusLabel lblSaveStatus;
+        private System.Windows.Forms.ToolStripStatusLabel lblTTSStatus;
         private System.Windows.Forms.ToolStripStatusLabel lblStudentInfo;
 
         protected override void Dispose(bool disposing)
@@ -78,7 +92,7 @@ namespace NotepadApp.Forms
         {
             this.components = new System.ComponentModel.Container();
 
-            // Kenar Çubuğu Elemanları
+            // Kenar Çubuğu
             this.pnlSidebar = new System.Windows.Forms.Panel();
             this.pnlSidebarHeader = new System.Windows.Forms.Panel();
             this.lblAppTitle = new System.Windows.Forms.Label();
@@ -94,7 +108,7 @@ namespace NotepadApp.Forms
             this.btnDuplicate = new System.Windows.Forms.Button();
             this.btnDelete = new System.Windows.Forms.Button();
 
-            // Ana İçerik Elemanları
+            // Ana İçerik
             this.pnlContent = new System.Windows.Forms.Panel();
             this.tlpNoteHeader = new System.Windows.Forms.TableLayoutPanel();
             this.txtTitle = new System.Windows.Forms.TextBox();
@@ -119,24 +133,38 @@ namespace NotepadApp.Forms
             this.tsbtnAlignCenter = new System.Windows.Forms.ToolStripButton();
             this.tsbtnAlignRight = new System.Windows.Forms.ToolStripButton();
             this.tsSep3 = new System.Windows.Forms.ToolStripSeparator();
-            this.tsbtnExportTxt = new System.Windows.Forms.ToolStripButton();
-            this.tsbtnExportRtf = new System.Windows.Forms.ToolStripButton();
+            this.tsbtnInsertImage = new System.Windows.Forms.ToolStripButton();
+            this.tsbtnFindReplace = new System.Windows.Forms.ToolStripButton();
+            this.tsbtnTTS = new System.Windows.Forms.ToolStripButton();
+            this.tsbtnLock = new System.Windows.Forms.ToolStripButton();
+            this.tsbtnStats = new System.Windows.Forms.ToolStripButton();
+            this.tsSep4 = new System.Windows.Forms.ToolStripSeparator();
+            this.tsddbExport = new System.Windows.Forms.ToolStripDropDownButton();
+            this.miExportTxt = new System.Windows.Forms.ToolStripMenuItem();
+            this.miExportRtf = new System.Windows.Forms.ToolStripMenuItem();
+            this.miExportMd = new System.Windows.Forms.ToolStripMenuItem();
+            this.miExportHtml = new System.Windows.Forms.ToolStripMenuItem();
             this.tsbtnImport = new System.Windows.Forms.ToolStripButton();
 
-            // Editör ve Menü
+            // Editör ve Sağ Tık Menüsü
             this.rtbEditor = new System.Windows.Forms.RichTextBox();
             this.cmsEditor = new System.Windows.Forms.ContextMenuStrip(this.components);
             this.miCut = new System.Windows.Forms.ToolStripMenuItem();
             this.miCopy = new System.Windows.Forms.ToolStripMenuItem();
             this.miPaste = new System.Windows.Forms.ToolStripMenuItem();
             this.miSep1 = new System.Windows.Forms.ToolStripSeparator();
+            this.miFind = new System.Windows.Forms.ToolStripMenuItem();
+            this.miSpeak = new System.Windows.Forms.ToolStripMenuItem();
+            this.miSep2 = new System.Windows.Forms.ToolStripSeparator();
             this.miSelectAll = new System.Windows.Forms.ToolStripMenuItem();
 
             // Durum Çubuğu
             this.statusStrip = new System.Windows.Forms.StatusStrip();
             this.lblWordCount = new System.Windows.Forms.ToolStripStatusLabel();
             this.lblCharCount = new System.Windows.Forms.ToolStripStatusLabel();
+            this.lblReadingTime = new System.Windows.Forms.ToolStripStatusLabel();
             this.lblSaveStatus = new System.Windows.Forms.ToolStripStatusLabel();
+            this.lblTTSStatus = new System.Windows.Forms.ToolStripStatusLabel();
             this.lblStudentInfo = new System.Windows.Forms.ToolStripStatusLabel();
 
             this.pnlSidebar.SuspendLayout();
@@ -155,7 +183,7 @@ namespace NotepadApp.Forms
             // pnlSidebar
             // ----------------------------------------------------
             this.pnlSidebar.Dock = System.Windows.Forms.DockStyle.Left;
-            this.pnlSidebar.Width = 320;
+            this.pnlSidebar.Width = 280;
             this.pnlSidebar.Padding = new System.Windows.Forms.Padding(10);
             this.pnlSidebar.Controls.Add(this.lstNotes);
             this.pnlSidebar.Controls.Add(this.pnlSidebarFooter);
@@ -175,8 +203,11 @@ namespace NotepadApp.Forms
 
             this.lblNoteCountBadge.Text = "0 Not";
             this.lblNoteCountBadge.Font = new System.Drawing.Font("Segoe UI", 9F, System.Drawing.FontStyle.Bold);
-            this.lblNoteCountBadge.Location = new System.Drawing.Point(215, 14);
-            this.lblNoteCountBadge.AutoSize = true;
+            this.lblNoteCountBadge.Location = new System.Drawing.Point(185, 14);
+            this.lblNoteCountBadge.Size = new System.Drawing.Size(85, 20);
+            this.lblNoteCountBadge.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
+            this.lblNoteCountBadge.Anchor = ((System.Windows.Forms.AnchorStyles)((System.Windows.Forms.AnchorStyles.Top | System.Windows.Forms.AnchorStyles.Right)));
+            this.lblNoteCountBadge.AutoSize = false;
 
             // pnlSidebarSearch
             this.pnlSidebarSearch.Dock = System.Windows.Forms.DockStyle.Top;
@@ -185,12 +216,12 @@ namespace NotepadApp.Forms
             this.pnlSidebarSearch.Controls.Add(this.cmbCategoryFilter);
 
             this.txtSearch.Location = new System.Drawing.Point(0, 5);
-            this.txtSearch.Width = 300;
+            this.txtSearch.Width = 260;
             this.txtSearch.Font = new System.Drawing.Font("Segoe UI", 9.5F);
-            this.txtSearch.PlaceholderText = "Notlarda ara...";
+            this.txtSearch.PlaceholderText = "Notlarda ara... (Ctrl+F)";
 
             this.cmbCategoryFilter.Location = new System.Drawing.Point(0, 36);
-            this.cmbCategoryFilter.Width = 300;
+            this.cmbCategoryFilter.Width = 260;
             this.cmbCategoryFilter.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.cmbCategoryFilter.Font = new System.Drawing.Font("Segoe UI", 9F);
 
@@ -239,7 +270,7 @@ namespace NotepadApp.Forms
             this.btnDuplicate.Cursor = System.Windows.Forms.Cursors.Hand;
 
             this.btnDelete.Dock = System.Windows.Forms.DockStyle.Fill;
-            this.btnDelete.Text = "Sil";
+            this.btnDelete.Text = "Çöpe At";
             this.btnDelete.Font = new System.Drawing.Font("Segoe UI", 8.5F, System.Drawing.FontStyle.Bold);
             this.btnDelete.FlatStyle = System.Windows.Forms.FlatStyle.Flat;
             this.btnDelete.Cursor = System.Windows.Forms.Cursors.Hand;
@@ -252,7 +283,7 @@ namespace NotepadApp.Forms
             this.pnlContent.Controls.Add(this.tsFormatting);
             this.pnlContent.Controls.Add(this.tlpNoteHeader);
 
-            // tlpNoteHeader (TableLayoutPanel: dynamically responsive)
+            // tlpNoteHeader
             this.tlpNoteHeader.Dock = System.Windows.Forms.DockStyle.Top;
             this.tlpNoteHeader.Height = 56;
             this.tlpNoteHeader.ColumnCount = 4;
@@ -294,6 +325,7 @@ namespace NotepadApp.Forms
             // tsFormatting
             this.tsFormatting.Dock = System.Windows.Forms.DockStyle.Top;
             this.tsFormatting.GripStyle = System.Windows.Forms.ToolStripGripStyle.Hidden;
+            this.tsFormatting.CanOverflow = false;
             this.tsFormatting.Padding = new System.Windows.Forms.Padding(8, 2, 8, 2);
             this.tsFormatting.Font = new System.Drawing.Font("Segoe UI", 9F);
             this.tsFormatting.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
@@ -313,16 +345,21 @@ namespace NotepadApp.Forms
                 this.tsbtnAlignCenter,
                 this.tsbtnAlignRight,
                 this.tsSep3,
-                this.tsbtnExportTxt,
-                this.tsbtnExportRtf,
+                this.tsbtnInsertImage,
+                this.tsbtnFindReplace,
+                this.tsbtnTTS,
+                this.tsbtnLock,
+                this.tsbtnStats,
+                this.tsSep4,
+                this.tsddbExport,
                 this.tsbtnImport
             });
 
-            this.tscmbFontFamily.Width = 110;
+            this.tscmbFontFamily.Width = 85;
             this.tscmbFontFamily.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.tscmbFontFamily.ToolTipText = "Yazı Tipi";
 
-            this.tscmbFontSize.Width = 45;
+            this.tscmbFontSize.Width = 35;
             this.tscmbFontSize.DropDownStyle = System.Windows.Forms.ComboBoxStyle.DropDownList;
             this.tscmbFontSize.ToolTipText = "Yazı Boyutu";
 
@@ -348,26 +385,49 @@ namespace NotepadApp.Forms
             this.tsbtnHighlightColor.Text = "Vurgu";
             this.tsbtnHighlightColor.ToolTipText = "Vurgu Rengi";
 
-            this.tsbtnBullet.Text = "• Liste";
+            this.tsbtnBullet.Text = "•";
             this.tsbtnBullet.ToolTipText = "Madde İmleri Aç/Kapat";
 
-            this.tsbtnAlignLeft.Text = "Sol";
+            this.tsbtnAlignLeft.Text = "⇤";
             this.tsbtnAlignLeft.ToolTipText = "Sola Hizala";
 
-            this.tsbtnAlignCenter.Text = "Orta";
+            this.tsbtnAlignCenter.Text = "↔";
             this.tsbtnAlignCenter.ToolTipText = "Ortala";
 
-            this.tsbtnAlignRight.Text = "Sağ";
+            this.tsbtnAlignRight.Text = "⇥";
             this.tsbtnAlignRight.ToolTipText = "Sağa Hizala";
 
-            this.tsbtnExportTxt.Text = "TXT";
-            this.tsbtnExportTxt.ToolTipText = "Seçili notu düz metin (.txt) olarak dışa aktar";
+            this.tsbtnInsertImage.Text = "Resim";
+            this.tsbtnInsertImage.ToolTipText = "Not içerisine resim ekle";
 
-            this.tsbtnExportRtf.Text = "RTF";
-            this.tsbtnExportRtf.ToolTipText = "Seçili notu zengin metin (.rtf) olarak dışa aktar";
+            this.tsbtnFindReplace.Text = "Bul";
+            this.tsbtnFindReplace.ToolTipText = "Metin Ara ve Değiştir (Ctrl+F / Ctrl+H)";
+
+            this.tsbtnTTS.Text = "Oku";
+            this.tsbtnTTS.ToolTipText = "Notu Türkçe sesle sesli oku";
+
+            this.tsbtnLock.Text = "Kilit";
+            this.tsbtnLock.ToolTipText = "Notu AES-256 parolasıyla şifrele / kilidini aç";
+
+            this.tsbtnStats.Text = "Özet";
+            this.tsbtnStats.ToolTipText = "Not defteri analiz ve istatistikleri";
+
+            // Dışa Aktar DropDown
+            this.tsddbExport.Text = "Dışa Aktar ▾";
+            this.tsddbExport.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
+                this.miExportTxt,
+                this.miExportRtf,
+                this.miExportMd,
+                this.miExportHtml
+            });
+
+            this.miExportTxt.Text = "Düz Metin (.txt)";
+            this.miExportRtf.Text = "Zengin Metin (.rtf)";
+            this.miExportMd.Text = "Markdown (.md)";
+            this.miExportHtml.Text = "Web Sayfası (.html)";
 
             this.tsbtnImport.Text = "İçe Aktar";
-            this.tsbtnImport.ToolTipText = "Dosyadan (.txt veya .rtf) not içe aktar";
+            this.tsbtnImport.ToolTipText = "Dosyadan (.txt, .rtf) not yükle";
 
             // rtbEditor
             this.rtbEditor.Dock = System.Windows.Forms.DockStyle.Fill;
@@ -384,6 +444,9 @@ namespace NotepadApp.Forms
             this.miCopy.ShortcutKeys = System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.C;
             this.miPaste.Text = "Yapıştır";
             this.miPaste.ShortcutKeys = System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.V;
+            this.miFind.Text = "Bul ve Değiştir...";
+            this.miFind.ShortcutKeys = System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.F;
+            this.miSpeak.Text = "🔊 Sesli Oku";
             this.miSelectAll.Text = "Tümünü Seç";
             this.miSelectAll.ShortcutKeys = System.Windows.Forms.Keys.Control | System.Windows.Forms.Keys.A;
 
@@ -392,6 +455,9 @@ namespace NotepadApp.Forms
                 this.miCopy,
                 this.miPaste,
                 this.miSep1,
+                this.miFind,
+                this.miSpeak,
+                this.miSep2,
                 this.miSelectAll
             });
 
@@ -399,7 +465,9 @@ namespace NotepadApp.Forms
             this.statusStrip.Items.AddRange(new System.Windows.Forms.ToolStripItem[] {
                 this.lblWordCount,
                 this.lblCharCount,
+                this.lblReadingTime,
                 this.lblSaveStatus,
+                this.lblTTSStatus,
                 this.lblStudentInfo
             });
 
@@ -411,9 +479,17 @@ namespace NotepadApp.Forms
             this.lblCharCount.BorderSides = System.Windows.Forms.ToolStripStatusLabelBorderSides.Right;
             this.lblCharCount.Padding = new System.Windows.Forms.Padding(4, 0, 8, 0);
 
+            this.lblReadingTime.Text = "⏱️ ~1 dk okuma";
+            this.lblReadingTime.BorderSides = System.Windows.Forms.ToolStripStatusLabelBorderSides.Right;
+            this.lblReadingTime.Padding = new System.Windows.Forms.Padding(4, 0, 8, 0);
+
             this.lblSaveStatus.Text = "Kaydedildi";
             this.lblSaveStatus.BorderSides = System.Windows.Forms.ToolStripStatusLabelBorderSides.Right;
             this.lblSaveStatus.Padding = new System.Windows.Forms.Padding(4, 0, 8, 0);
+
+            this.lblTTSStatus.Text = "🔊 TTS Hazır";
+            this.lblTTSStatus.BorderSides = System.Windows.Forms.ToolStripStatusLabelBorderSides.Right;
+            this.lblTTSStatus.Padding = new System.Windows.Forms.Padding(4, 0, 8, 0);
 
             this.lblStudentInfo.Spring = true;
             this.lblStudentInfo.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
@@ -422,8 +498,8 @@ namespace NotepadApp.Forms
             // MainForm
             this.AutoScaleDimensions = new System.Drawing.SizeF(7F, 15F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1100, 680);
-            this.MinimumSize = new System.Drawing.Size(900, 520);
+            this.ClientSize = new System.Drawing.Size(1200, 720);
+            this.MinimumSize = new System.Drawing.Size(950, 550);
             this.StartPosition = System.Windows.Forms.FormStartPosition.CenterScreen;
             this.Text = "YMH 219 - Gelişmiş Not Defteri | İsmail Özdemir (250541109)";
 

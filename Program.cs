@@ -25,7 +25,7 @@ namespace NotepadApp
                 {
                     Console.WriteLine("[INFO] Ekran görüntüleri oluşturuluyor...");
                     using var form = new MainForm();
-                    form.Size = new Size(1160, 700);
+                    form.Size = new Size(1420, 760);
                     form.StartPosition = FormStartPosition.Manual;
                     form.Location = new Point(50, 50);
                     form.Show();

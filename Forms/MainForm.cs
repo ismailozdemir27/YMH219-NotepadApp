@@ -12,6 +12,7 @@ namespace NotepadApp.Forms
     public partial class MainForm : Form
     {
         private readonly NoteStorageService _storageService;
+        private readonly TextToSpeechService _ttsService;
         private readonly List<Note> _allNotes = new();
         private readonly List<Note> _filteredNotes = new();
 
@@ -46,6 +47,22 @@ namespace NotepadApp.Forms
             _storageService = new NoteStorageService();
             _storageService.OnLog += msg => System.Diagnostics.Debug.WriteLine(msg);
             _storageService.OnError += msg => MessageBox.Show(msg, "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+
+            _ttsService = new TextToSpeechService();
+            _ttsService.OnSpeakingStateChanged += isSpeaking =>
+            {
+                if (this.IsDisposed) return;
+                this.BeginInvoke((Action)(() =>
+                {
+                    tsbtnTTS.Text = isSpeaking ? "⏹️ Durdur" : "🔊 Oku";
+                    lblTTSStatus.Text = isSpeaking ? "🔊 Okunuyor..." : "🔊 TTS Hazır";
+                }));
+            };
+            _ttsService.OnStatusMessage += msg =>
+            {
+                if (this.IsDisposed) return;
+                this.BeginInvoke((Action)(() => lblTTSStatus.Text = msg));
+            };
 
             _autoSaveTimer = new System.Windows.Forms.Timer { Interval = 600 };
             _autoSaveTimer.Tick += (s, e) =>
@@ -101,9 +118,18 @@ namespace NotepadApp.Forms
             tsbtnAlignCenter.Click += (s, e) => rtbEditor.SelectionAlignment = HorizontalAlignment.Center;
             tsbtnAlignRight.Click += (s, e) => rtbEditor.SelectionAlignment = HorizontalAlignment.Right;
 
+            // Gelişmiş Özellik Butonları
+            tsbtnInsertImage.Click += (s, e) => InsertImageDialog();
+            tsbtnFindReplace.Click += (s, e) => OpenFindReplaceDialog(false);
+            tsbtnTTS.Click += (s, e) => ToggleTTS();
+            tsbtnLock.Click += (s, e) => ToggleEncryption();
+            tsbtnStats.Click += (s, e) => OpenStatsDashboard();
+
             // Dışa / İçe Aktar
-            tsbtnExportTxt.Click += (s, e) => ExportCurrentNoteTxt();
-            tsbtnExportRtf.Click += (s, e) => ExportCurrentNoteRtf();
+            miExportTxt.Click += (s, e) => ExportCurrentNoteTxt();
+            miExportRtf.Click += (s, e) => ExportCurrentNoteRtf();
+            miExportMd.Click += (s, e) => ExportCurrentNoteMd();
+            miExportHtml.Click += (s, e) => ExportCurrentNoteHtml();
             tsbtnImport.Click += (s, e) => ImportNoteDialog();
 
             // Arama ve Başlık
@@ -143,9 +169,9 @@ namespace NotepadApp.Forms
             lstNotes.SelectedIndexChanged += LstNotes_SelectedIndexChanged;
 
             // Buton Olayları
-            btnNewNote.Click += (s, e) => CreateNewNote();
-            btnDelete.Click += (s, e) => DeleteCurrentNote();
-            btnPin.Click += (s, e) => ToggleCurrentNotePin();
+            btnNewNote.Click += (s, e) => OnSidebarPrimaryAction();
+            btnDelete.Click += (s, e) => OnSidebarDeleteAction();
+            btnPin.Click += (s, e) => OnSidebarPinOrRestoreAction();
             btnDuplicate.Click += (s, e) => DuplicateCurrentNote();
             btnThemeToggle.Click += (s, e) => ToggleTheme();
 
@@ -153,13 +179,31 @@ namespace NotepadApp.Forms
             miCut.Click += (s, e) => rtbEditor.Cut();
             miCopy.Click += (s, e) => rtbEditor.Copy();
             miPaste.Click += (s, e) => rtbEditor.Paste();
+            miFind.Click += (s, e) => OpenFindReplaceDialog(false);
+            miSpeak.Click += (s, e) => ToggleTTS();
             miSelectAll.Click += (s, e) => rtbEditor.SelectAll();
 
             this.FormClosing += (s, e) =>
             {
+                _ttsService.Dispose();
                 FlushCurrentNoteChanges();
                 SaveAllNotes();
             };
+        }
+
+        protected override bool ProcessCmdKey(ref Message msg, Keys keyData)
+        {
+            if (keyData == (Keys.Control | Keys.F))
+            {
+                OpenFindReplaceDialog(false);
+                return true;
+            }
+            if (keyData == (Keys.Control | Keys.H))
+            {
+                OpenFindReplaceDialog(true);
+                return true;
+            }
+            return base.ProcessCmdKey(ref msg, keyData);
         }
 
         #region Veri Yükleme ve Saklama
@@ -209,7 +253,45 @@ namespace NotepadApp.Forms
         }
         #endregion
 
-        #region Not Yönetimi (CRUD)
+        #region Not Yönetimi (CRUD & Çöp Kutusu)
+        private bool IsViewingTrash => cmbCategoryFilter.SelectedItem?.ToString() == NoteCategories.Trash;
+
+        private void OnSidebarPrimaryAction()
+        {
+            if (IsViewingTrash)
+            {
+                EmptyTrash();
+            }
+            else
+            {
+                CreateNewNote();
+            }
+        }
+
+        private void OnSidebarDeleteAction()
+        {
+            if (IsViewingTrash)
+            {
+                DeleteCurrentNotePermanently();
+            }
+            else
+            {
+                MoveCurrentNoteToTrash();
+            }
+        }
+
+        private void OnSidebarPinOrRestoreAction()
+        {
+            if (IsViewingTrash)
+            {
+                RestoreCurrentNoteFromTrash();
+            }
+            else
+            {
+                ToggleCurrentNotePin();
+            }
+        }
+
         private void CreateNewNote()
         {
             FlushCurrentNoteChanges();
@@ -222,7 +304,8 @@ namespace NotepadApp.Forms
                 RtfContent = "",
                 CreatedAt = DateTime.Now,
                 UpdatedAt = DateTime.Now,
-                IsPinned = false
+                IsPinned = false,
+                IsDeleted = false
             };
 
             _allNotes.Insert(0, newNote);
@@ -239,19 +322,20 @@ namespace NotepadApp.Forms
             ScheduleAutoSave();
         }
 
-        private void DeleteCurrentNote()
+        private void MoveCurrentNoteToTrash()
         {
             if (_currentNote == null) return;
 
             var result = MessageBox.Show(
-                $"\"{_currentNote.Title}\" başlıklı notu silmek istediğinize emin misiniz?",
-                "Notu Sil",
+                $"\"{_currentNote.Title}\" başlıklı notu Çöp Kutusu'na taşımak istediğinize emin misiniz?",
+                "Çöpe At",
                 MessageBoxButtons.YesNo,
                 MessageBoxIcon.Question);
 
             if (result == DialogResult.Yes)
             {
-                _allNotes.Remove(_currentNote);
+                _currentNote.IsDeleted = true;
+                _currentNote.DeletedAt = DateTime.Now;
                 _currentNote = null;
                 ApplyFilter();
 
@@ -265,6 +349,73 @@ namespace NotepadApp.Forms
                 }
 
                 SaveAllNotes();
+            }
+        }
+
+        private void RestoreCurrentNoteFromTrash()
+        {
+            if (_currentNote == null) return;
+
+            _currentNote.IsDeleted = false;
+            _currentNote.DeletedAt = null;
+            _currentNote.UpdatedAt = DateTime.Now;
+
+            MessageBox.Show($"\"{_currentNote.Title}\" başarıyla geri yüklendi!", "Geri Yüklendi", MessageBoxButtons.OK, MessageBoxIcon.Information);
+
+            ApplyFilter();
+            if (_filteredNotes.Count > 0)
+            {
+                lstNotes.SelectedIndex = 0;
+            }
+            SaveAllNotes();
+        }
+
+        private void DeleteCurrentNotePermanently()
+        {
+            if (_currentNote == null) return;
+
+            var result = MessageBox.Show(
+                $"\"{_currentNote.Title}\" başlıklı notu KALICI olarak silmek istediğinize emin misiniz? Bu işlem geri alınamaz!",
+                "Kalıcı Olarak Sil",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+
+            if (result == DialogResult.Yes)
+            {
+                _allNotes.Remove(_currentNote);
+                _currentNote = null;
+                ApplyFilter();
+
+                if (_filteredNotes.Count > 0)
+                {
+                    lstNotes.SelectedIndex = 0;
+                }
+                SaveAllNotes();
+            }
+        }
+
+        private void EmptyTrash()
+        {
+            int count = _allNotes.Count(n => n.IsDeleted);
+            if (count == 0)
+            {
+                MessageBox.Show("Çöp kutusu zaten boş.", "Bilgi", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                return;
+            }
+
+            var result = MessageBox.Show(
+                $"Çöp kutusundaki {count} adet not kalıcı olarak silinecek. Emin misiniz?",
+                "Çöp Kutusunu Boşalt",
+                MessageBoxButtons.YesNo,
+                MessageBoxIcon.Warning);
+
+            if (result == DialogResult.Yes)
+            {
+                _allNotes.RemoveAll(n => n.IsDeleted);
+                _currentNote = null;
+                ApplyFilter();
+                SaveAllNotes();
+                MessageBox.Show("Çöp kutusu tamamen boşaltıldı.", "Başarılı", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
         }
 
@@ -292,7 +443,8 @@ namespace NotepadApp.Forms
                 RtfContent = _currentNote.RtfContent,
                 CreatedAt = DateTime.Now,
                 UpdatedAt = DateTime.Now,
-                IsPinned = false
+                IsPinned = false,
+                IsDeleted = false
             };
 
             _allNotes.Insert(0, clone);
@@ -307,6 +459,114 @@ namespace NotepadApp.Forms
         }
         #endregion
 
+        #region Şifreleme ve Kilit (AES-256)
+        private void ToggleEncryption()
+        {
+            if (_currentNote == null) return;
+
+            if (_currentNote.IsEncrypted)
+            {
+                // Kilidi tamamen kaldır
+                string? pass = PromptPassword("Notun kilidini kaldırmak için mevcut parolayı giriniz:");
+                if (pass == null) return;
+
+                if (!EncryptionService.VerifyPassword(pass, _currentNote.PasswordHash ?? ""))
+                {
+                    MessageBox.Show("Hatalı parola! Kilit kaldırılamadı.", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                _currentNote.IsEncrypted = false;
+                _currentNote.PasswordHash = null;
+                UpdateLockStatusButton();
+                lstNotes.Invalidate();
+                SaveAllNotes();
+                MessageBox.Show("Notun parola kilidi başarıyla kaldırıldı.", "Kilit Kaldırıldı", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+            else
+            {
+                // Parolayla kilitle
+                string? pass1 = PromptPassword("Notu kilitlemek için bir parola belirleyiniz:");
+                if (string.IsNullOrWhiteSpace(pass1)) return;
+
+                string? pass2 = PromptPassword("Parolayı tekrar giriniz:");
+                if (pass1 != pass2)
+                {
+                    MessageBox.Show("Girdiğiniz parolalar eşleşmiyor!", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    return;
+                }
+
+                _currentNote.IsEncrypted = true;
+                _currentNote.PasswordHash = EncryptionService.HashPassword(pass1);
+                UpdateLockStatusButton();
+                lstNotes.Invalidate();
+                SaveAllNotes();
+                MessageBox.Show("Not başarıyla AES-256 ile kilitlendi! Artık içeriği görmek için parola gerekecektir.", "Kilitlendi", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        private void UpdateLockStatusButton()
+        {
+            if (_currentNote != null && _currentNote.IsEncrypted)
+            {
+                tsbtnLock.Text = "🔓 Kilidi Aç";
+                tsbtnLock.ToolTipText = "Notun parola kilidini kaldır";
+            }
+            else
+            {
+                tsbtnLock.Text = "🔒 Kilitle";
+                tsbtnLock.ToolTipText = "Notu AES-256 parolasıyla kilitle";
+            }
+        }
+
+        private static string? PromptPassword(string promptTitle)
+        {
+            using var prompt = new Form
+            {
+                Width = 360,
+                Height = 160,
+                FormBorderStyle = FormBorderStyle.FixedDialog,
+                Text = "🔒 Parola Girişi",
+                StartPosition = FormStartPosition.CenterParent,
+                MaximizeBox = false,
+                MinimizeBox = false
+            };
+
+            var lbl = new Label { Left = 20, Top = 15, Text = promptTitle, Width = 310, AutoSize = false };
+            var txt = new TextBox { Left = 20, Top = 45, Width = 300, UseSystemPasswordChar = true };
+            var btnOk = new Button { Text = "Tamam", Left = 140, Width = 85, Top = 80, DialogResult = DialogResult.OK };
+            var btnCancel = new Button { Text = "İptal", Left = 235, Width = 85, Top = 80, DialogResult = DialogResult.Cancel };
+
+            prompt.Controls.AddRange(new Control[] { lbl, txt, btnOk, btnCancel });
+            prompt.AcceptButton = btnOk;
+            prompt.CancelButton = btnCancel;
+
+            return prompt.ShowDialog() == DialogResult.OK ? txt.Text : null;
+        }
+        #endregion
+
+        #region Sesli Okuma (TTS)
+        private void ToggleTTS()
+        {
+            if (_ttsService.IsSpeaking)
+            {
+                _ttsService.Stop();
+            }
+            else
+            {
+                string textToRead = !string.IsNullOrWhiteSpace(rtbEditor.SelectedText) ? rtbEditor.SelectedText : rtbEditor.Text;
+                if (!string.IsNullOrWhiteSpace(textToRead))
+                {
+                    _ttsService.Speak(textToRead);
+                }
+                else
+                {
+                    MessageBox.Show("Sesli okunacak bir metin bulunamadı.", "Bilgi", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+            }
+        }
+        #endregion
+
         #region Liste ve Filtreleme
         private void ApplyFilter()
         {
@@ -315,16 +575,30 @@ namespace NotepadApp.Forms
 
             _filteredNotes.Clear();
 
-            var query = _allNotes.AsEnumerable();
-
-            // Kategori filtresi
-            if (selectedCat == NoteCategories.Pinned)
+            // Çöp kutusu ve normal not ayrımı
+            IEnumerable<Note> query;
+            if (selectedCat == NoteCategories.Trash)
             {
-                query = query.Where(n => n.IsPinned);
+                query = _allNotes.Where(n => n.IsDeleted);
+                btnNewNote.Text = "🧹 Çöpü Boşalt";
+                btnPin.Text = "♻️ Geri Yükle";
+                btnDelete.Text = "Kalıcı Sil";
+                btnDuplicate.Enabled = false;
             }
-            else if (selectedCat != NoteCategories.All)
+            else
             {
-                query = query.Where(n => n.Category == selectedCat);
+                query = _allNotes.Where(n => !n.IsDeleted);
+                btnNewNote.Text = "+ Yeni Not";
+                btnDuplicate.Enabled = true;
+
+                if (selectedCat == NoteCategories.Pinned)
+                {
+                    query = query.Where(n => n.IsPinned);
+                }
+                else if (selectedCat != NoteCategories.All)
+                {
+                    query = query.Where(n => n.Category == selectedCat);
+                }
             }
 
             // Arama filtresi
@@ -342,7 +616,7 @@ namespace NotepadApp.Forms
 
             _filteredNotes.AddRange(sorted);
 
-            lblNoteCountBadge.Text = $"{_filteredNotes.Count} / {_allNotes.Count} Not";
+            lblNoteCountBadge.Text = $"{_filteredNotes.Count} / {_allNotes.Count(n => !n.IsDeleted)} Not";
 
             lstNotes.BeginUpdate();
             lstNotes.Items.Clear();
@@ -352,7 +626,7 @@ namespace NotepadApp.Forms
             }
             lstNotes.EndUpdate();
 
-            // Seçimi koru veya ayarla
+            // Seçimi ayarla
             if (_currentNote != null && _filteredNotes.Contains(_currentNote))
             {
                 lstNotes.SelectedItem = _currentNote;
@@ -396,7 +670,14 @@ namespace NotepadApp.Forms
             {
                 txtTitle.Text = _currentNote.Title;
                 chkPin.Checked = _currentNote.IsPinned;
-                btnPin.Text = _currentNote.IsPinned ? "Sabiti Kaldır" : "★ Sabitle";
+
+                if (!IsViewingTrash)
+                {
+                    btnPin.Text = _currentNote.IsPinned ? "Sabiti Kaldır" : "★ Sabitle";
+                    btnDelete.Text = "Çöpe At";
+                }
+
+                UpdateLockStatusButton();
 
                 if (cmbCategory.Items.Contains(_currentNote.Category))
                 {
@@ -407,6 +688,7 @@ namespace NotepadApp.Forms
                     cmbCategory.SelectedItem = NoteCategories.General;
                 }
 
+                // İçeriği doldur
                 if (!string.IsNullOrEmpty(_currentNote.RtfContent) && _currentNote.RtfContent.TrimStart().StartsWith("{\\rtf"))
                 {
                     try
@@ -435,8 +717,11 @@ namespace NotepadApp.Forms
         {
             int words = _currentNote?.WordCount ?? 0;
             int chars = _currentNote?.CharCount ?? 0;
+            int minutes = _currentNote?.ReadingTimeMinutes ?? 1;
+
             lblWordCount.Text = $"Kelimeler: {words:N0}";
             lblCharCount.Text = $"Karakterler: {chars:N0}";
+            lblReadingTime.Text = $"⏱️ ~{minutes} dk okuma";
         }
         #endregion
 
@@ -466,13 +751,21 @@ namespace NotepadApp.Forms
             int x = e.Bounds.X + 12;
             int y = e.Bounds.Y + 6;
 
-            // 1. Satır: Pin + Başlık
+            // 1. Satır: Pin + Lock + Başlık
             int currentX = x;
             if (note.IsPinned)
             {
                 using var fontStar = new Font("Segoe UI", 9.5F, FontStyle.Bold);
-                using var brushStar = new SolidBrush(Color.FromArgb(245, 158, 11));
+                using var brushStar = new SolidBrush(Color.FromArgb(245, 158, 11)); // Amber star
                 e.Graphics.DrawString("★", fontStar, brushStar, currentX, y);
+                currentX += 18;
+            }
+
+            if (note.IsEncrypted)
+            {
+                using var fontLock = new Font("Segoe UI", 9F, FontStyle.Regular);
+                using var brushLock = new SolidBrush(Color.FromArgb(239, 68, 68)); // Kırmızı kilit
+                e.Graphics.DrawString("🔒", fontLock, brushLock, currentX, y);
                 currentX += 18;
             }
 
@@ -508,14 +801,12 @@ namespace NotepadApp.Forms
         }
         #endregion
 
-        #region Zengin Metin Biçimlendirme
+        #region Zengin Metin Biçimlendirme & Medya
         private void ToggleFontStyle(FontStyle style)
         {
             if (rtbEditor.SelectionFont == null) return;
-
             FontStyle currentStyle = rtbEditor.SelectionFont.Style;
             FontStyle newStyle = currentStyle ^ style;
-
             rtbEditor.SelectionFont = new Font(rtbEditor.SelectionFont.FontFamily, rtbEditor.SelectionFont.Size, newStyle);
         }
 
@@ -525,7 +816,6 @@ namespace NotepadApp.Forms
             string family = tscmbFontFamily.SelectedItem.ToString()!;
             FontStyle style = rtbEditor.SelectionFont.Style;
             float size = rtbEditor.SelectionFont.Size;
-
             rtbEditor.SelectionFont = new Font(family, size, style);
         }
 
@@ -542,8 +832,7 @@ namespace NotepadApp.Forms
 
         private void ChangeTextColor()
         {
-            using var cd = new ColorDialog();
-            cd.Color = rtbEditor.SelectionColor;
+            using var cd = new ColorDialog { Color = rtbEditor.SelectionColor };
             if (cd.ShowDialog() == DialogResult.OK)
             {
                 rtbEditor.SelectionColor = cd.Color;
@@ -552,8 +841,7 @@ namespace NotepadApp.Forms
 
         private void ChangeHighlightColor()
         {
-            using var cd = new ColorDialog();
-            cd.Color = rtbEditor.SelectionBackColor;
+            using var cd = new ColorDialog { Color = rtbEditor.SelectionBackColor };
             if (cd.ShowDialog() == DialogResult.OK)
             {
                 rtbEditor.SelectionBackColor = cd.Color;
@@ -563,6 +851,43 @@ namespace NotepadApp.Forms
         private void ToggleBullet()
         {
             rtbEditor.SelectionBullet = !rtbEditor.SelectionBullet;
+        }
+
+        private void InsertImageDialog()
+        {
+            using var ofd = new OpenFileDialog
+            {
+                Filter = "Resim Dosyaları (*.png;*.jpg;*.jpeg;*.bmp;*.gif)|*.png;*.jpg;*.jpeg;*.bmp;*.gif",
+                Title = "Nota Resim Ekle"
+            };
+
+            if (ofd.ShowDialog() == DialogResult.OK)
+            {
+                try
+                {
+                    using var img = Image.FromFile(ofd.FileName);
+                    Clipboard.SetImage(img);
+                    rtbEditor.Paste();
+                    MessageBox.Show("Resim başarıyla nota eklendi!", "Bilgi", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Resim eklenirken hata: {ex.Message}", "Hata", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+
+        private void OpenFindReplaceDialog(bool isReplaceMode)
+        {
+            var dlg = new FindReplaceForm(rtbEditor, isReplaceMode);
+            dlg.Show(this);
+        }
+
+        private void OpenStatsDashboard()
+        {
+            FlushCurrentNoteChanges();
+            using var stats = new StatsForm(_allNotes);
+            stats.ShowDialog(this);
         }
         #endregion
 
@@ -582,10 +907,7 @@ namespace NotepadApp.Forms
             if (sfd.ShowDialog() == DialogResult.OK)
             {
                 bool ok = _storageService.ExportToTxt(_currentNote, sfd.FileName);
-                if (ok)
-                {
-                    MessageBox.Show("Not başarıyla düz metin (.txt) olarak dışa aktarıldı!", "Başarılı", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                }
+                if (ok) MessageBox.Show("Not başarıyla düz metin (.txt) olarak dışa aktarıldı!", "Başarılı", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
         }
 
@@ -604,10 +926,45 @@ namespace NotepadApp.Forms
             if (sfd.ShowDialog() == DialogResult.OK)
             {
                 bool ok = _storageService.ExportToRtf(_currentNote, sfd.FileName);
-                if (ok)
-                {
-                    MessageBox.Show("Not başarıyla zengin metin (.rtf) olarak dışa aktarıldı!", "Başarılı", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                }
+                if (ok) MessageBox.Show("Not başarıyla zengin metin (.rtf) olarak dışa aktarıldı!", "Başarılı", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        private void ExportCurrentNoteMd()
+        {
+            if (_currentNote == null) return;
+            FlushCurrentNoteChanges();
+
+            using var sfd = new SaveFileDialog
+            {
+                Filter = "Markdown Dosyası (*.md)|*.md",
+                FileName = $"{SanitizeFileName(_currentNote.Title)}.md",
+                Title = "Notu Markdown Olarak Kaydet"
+            };
+
+            if (sfd.ShowDialog() == DialogResult.OK)
+            {
+                bool ok = _storageService.ExportToMarkdown(_currentNote, sfd.FileName);
+                if (ok) MessageBox.Show("Not başarıyla Markdown (.md) olarak dışa aktarıldı!", "Başarılı", MessageBoxButtons.OK, MessageBoxIcon.Information);
+            }
+        }
+
+        private void ExportCurrentNoteHtml()
+        {
+            if (_currentNote == null) return;
+            FlushCurrentNoteChanges();
+
+            using var sfd = new SaveFileDialog
+            {
+                Filter = "Web Sayfası (*.html)|*.html",
+                FileName = $"{SanitizeFileName(_currentNote.Title)}.html",
+                Title = "Notu HTML Olarak Kaydet"
+            };
+
+            if (sfd.ShowDialog() == DialogResult.OK)
+            {
+                bool ok = _storageService.ExportToHtml(_currentNote, sfd.FileName);
+                if (ok) MessageBox.Show("Not başarıyla HTML (.html) sayfası olarak dışa aktarıldı!", "Başarılı", MessageBoxButtons.OK, MessageBoxIcon.Information);
             }
         }
 
