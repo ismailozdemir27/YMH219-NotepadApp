@@ -5,7 +5,7 @@ namespace NotepadApp.Models
 {
     /// <summary>
     /// Not defterindeki tekil bir notu temsil eden veri modeli.
-    /// JSON serileştirme, zengin metin desteği, etiketleme ve zaman damgası içerir.
+    /// JSON serileştirme, zengin metin desteği, AES-256 şifreleme ve çöp kutusu durumunu içerir.
     /// </summary>
     public class Note
     {
@@ -26,6 +26,18 @@ namespace NotepadApp.Models
 
         [JsonPropertyName("isPinned")]
         public bool IsPinned { get; set; } = false;
+
+        [JsonPropertyName("isEncrypted")]
+        public bool IsEncrypted { get; set; } = false;
+
+        [JsonPropertyName("passwordHash")]
+        public string? PasswordHash { get; set; }
+
+        [JsonPropertyName("isDeleted")]
+        public bool IsDeleted { get; set; } = false;
+
+        [JsonPropertyName("deletedAt")]
+        public DateTime? DeletedAt { get; set; }
 
         [JsonPropertyName("createdAt")]
         public DateTime CreatedAt { get; set; } = DateTime.Now;
@@ -51,10 +63,14 @@ namespace NotepadApp.Models
         public int CharCount => Content?.Length ?? 0;
 
         [JsonIgnore]
+        public int ReadingTimeMinutes => Math.Max(1, (int)Math.Ceiling(WordCount / 200.0));
+
+        [JsonIgnore]
         public string PreviewText
         {
             get
             {
+                if (IsEncrypted) return "🔒 [Şifrelenmiş Not - İçeriği görmek için kilidi açın]";
                 if (string.IsNullOrWhiteSpace(Content)) return "(Boş içerik)";
                 var firstLine = Content.Split('\n')[0].Trim();
                 return firstLine.Length > 40 ? firstLine.Substring(0, 37) + "..." : firstLine;
@@ -64,7 +80,8 @@ namespace NotepadApp.Models
         public override string ToString()
         {
             string pin = IsPinned ? "★ " : "";
-            return $"{pin}{Title} [{Category}] - {FormattedDate}";
+            string enc = IsEncrypted ? "🔒 " : "";
+            return $"{pin}{enc}{Title} [{Category}] - {FormattedDate}";
         }
     }
 }

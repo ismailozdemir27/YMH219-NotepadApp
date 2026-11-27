@@ -15,6 +15,7 @@ namespace NotepadApp.Models
         public const string Project = "Proje";
         public const string Important = "Önemli";
         public const string Pinned = "★ Sabitlenenler";
+        public const string Trash = "🗑️ Çöp Kutusu";
 
         public static readonly string[] AvailableCategories = new[]
         {
@@ -32,7 +33,8 @@ namespace NotepadApp.Models
             Personal,
             Project,
             Important,
-            Pinned
+            Pinned,
+            Trash
         };
     }
 }
