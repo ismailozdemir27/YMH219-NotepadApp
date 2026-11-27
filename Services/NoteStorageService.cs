@@ -46,7 +46,7 @@ namespace NotepadApp.Services
             {
                 string json = JsonSerializer.Serialize(notes, _jsonOptions);
 
-                // 1. Önce geçici dosyaya yaz (veri kaybını önlemek için)
+                // 1. Önce geçici dosyaya yaz (Elektrik kesintisi veya ani kapanmada veri kaybını önlemek için)
                 string tempFile = _storageFilePath + ".tmp";
                 File.WriteAllText(tempFile, json, Encoding.UTF8);
 
@@ -113,7 +113,7 @@ namespace NotepadApp.Services
                 catch { }
             }
 
-            // 3. Hiçbir dosya yoksa örnek başlangıç notları üret
+            // 3. Hiçbir dosya yoksa veya ilk çalıştırmaysa örnek başlangıç notları üret
             var starters = SeedStarterNotes();
             SaveNotes(starters);
             return starters;
@@ -159,7 +159,7 @@ namespace NotepadApp.Services
                     IsPinned = false,
                     CreatedAt = DateTime.Now.AddHours(-5),
                     UpdatedAt = DateTime.Now.AddHours(-1),
-                    Content = "Haftalık Alışveriş ve Notlar:\n- Defter ve tükenmez kalem\n- USB Flash Bellek\n- Laboratuvar raporu çıktısı\n- Kahve ve atıştırmalık"
+                    Content = "Haftalık Alışveriş:\n- Defter ve kalem\n- USB Flash Bellek\n- Kahve\n- Atıştırmalıklar"
                 }
             };
         }
@@ -216,6 +216,89 @@ namespace NotepadApp.Services
         }
 
         /// <summary>
+        /// Bir notu biçimlendirilmiş Markdown (.md) olarak dışa aktarır.
+        /// </summary>
+        public bool ExportToMarkdown(Note note, string destinationPath, string studentInfo = "İsmail Özdemir - 250541109")
+        {
+            if (note == null || string.IsNullOrWhiteSpace(destinationPath)) return false;
+
+            try
+            {
+                var sb = new StringBuilder();
+                sb.AppendLine($"# {note.Title}");
+                sb.AppendLine();
+                sb.AppendLine($"> **Kategori:** `{note.Category}` | **Oluşturulma:** `{note.CreatedAt:dd.MM.yyyy HH:mm}` | **Güncellenme:** `{note.UpdatedAt:dd.MM.yyyy HH:mm}`");
+                sb.AppendLine($"> **Öğrenci:** `{studentInfo}`");
+                sb.AppendLine();
+                sb.AppendLine("---");
+                sb.AppendLine();
+                sb.AppendLine(note.Content);
+                sb.AppendLine();
+                sb.AppendLine("---");
+                sb.AppendLine("*YMH219-NotepadApp ile dışa aktarıldı.*");
+
+                File.WriteAllText(destinationPath, sb.ToString(), Encoding.UTF8);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                OnError?.Invoke($"Markdown aktarılırken hata: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// Bir notu modern CSS stilli HTML sayfası (.html) olarak dışa aktarır.
+        /// </summary>
+        public bool ExportToHtml(Note note, string destinationPath, string studentInfo = "İsmail Özdemir - 250541109")
+        {
+            if (note == null || string.IsNullOrWhiteSpace(destinationPath)) return false;
+
+            try
+            {
+                string safeTitle = System.Net.WebUtility.HtmlEncode(note.Title);
+                string safeContent = System.Net.WebUtility.HtmlEncode(note.Content).Replace("\n", "<br/>");
+
+                string html = $@"<!DOCTYPE html>
+<html lang=""tr"">
+<head>
+    <meta charset=""UTF-8"">
+    <title>{safeTitle}</title>
+    <style>
+        body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; line-height: 1.6; color: #1e293b; max-width: 800px; margin: 40px auto; padding: 0 20px; }}
+        h1 {{ border-bottom: 2px solid #2563eb; padding-bottom: 8px; color: #0f172a; }}
+        .meta {{ background: #f8fafc; border-left: 4px solid #2563eb; padding: 12px 16px; border-radius: 4px; margin-bottom: 24px; font-size: 0.9em; color: #64748b; }}
+        .content {{ background: #ffffff; border: 1px solid #e2e8f0; padding: 24px; border-radius: 8px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }}
+        .footer {{ margin-top: 30px; font-size: 0.8em; text-align: center; color: #94a3b8; border-top: 1px solid #e2e8f0; padding-top: 12px; }}
+    </style>
+</head>
+<body>
+    <h1>{safeTitle}</h1>
+    <div class=""meta"">
+        <strong>Kategori:</strong> {note.Category} &bull; 
+        <strong>Son Güncelleme:</strong> {note.UpdatedAt:dd.MM.yyyy HH:mm} &bull; 
+        <strong>Yazar:</strong> {studentInfo}
+    </div>
+    <div class=""content"">
+        {safeContent}
+    </div>
+    <div class=""footer"">
+        YMH219 - Gelişmiş Not Defteri Uygulaması ile oluşturuldu.
+    </div>
+</body>
+</html>";
+
+                File.WriteAllText(destinationPath, html, Encoding.UTF8);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                OnError?.Invoke($"HTML aktarılırken hata: {ex.Message}");
+                return false;
+            }
+        }
+
+        /// <summary>
         /// Dosyadan (.txt veya .rtf) içerik okuyarak yeni Not nesnesi oluşturur.
         /// </summary>
         public Note? ImportFromFile(string filePath)
@@ -239,7 +322,7 @@ namespace NotepadApp.Services
                 if (ext == ".rtf")
                 {
                     note.RtfContent = text;
-                    note.Content = text;
+                    note.Content = text; // Arka planda düz metin çıkarımı da yapılabilir
                 }
                 else
                 {
@@ -256,3 +339,4 @@ namespace NotepadApp.Services
         }
     }
 }
+
